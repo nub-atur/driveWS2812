@@ -13,7 +13,6 @@
 // #define LED_TOGGLE_PRIO 5 // Priority one
 // #define LED_DELAY1 500 // 500 ms delay between toggles
 #define LED_DELAY2 5000  // 100 ms delay between toggles
-uint8_t timerIrqFlag = 0;
 
 // void LED_Toggle_wDelay(void *args) // Led Toggle task
 // {
@@ -24,6 +23,7 @@ uint8_t timerIrqFlag = 0;
 static void LED_Toggle_wTimer(TimerHandle_t mypxTimer) // Timer callback handler
 {
     // gpio_set_level(LED_GPIO2, !gpio_get_level(LED_GPIO2)); // Toggle LED
+
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     vTaskNotifyGiveFromISR(flop, &xHigherPriorityTaskWoken);
     if (xHigherPriorityTaskWoken) {

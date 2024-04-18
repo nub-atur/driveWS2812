@@ -30,135 +30,94 @@ TaskHandle_t flop;
 TaskHandle_t readInput;
 QueueHandle_t myQueue;
 
-void rainBow_led_task(void *pvParameter)
+void vRainBow(void *pvParameter)
 {
-    uint8_t green = 0;
-    uint8_t red = 255;
-    uint8_t blue = 0;
-
+    uint8_t green;
+    uint8_t red;
+    uint8_t blue;
+    uint16_t i;
+    uint16_t j = 0;
     uint32_t rxData;
+    uint16_t res = 1000;
 	while(1)
-	{   
-        uint16_t res = 500;
-        if (xQueueReceive(myQueue, &rxData, portMAX_DELAY)){
-            res = (rxData > (int)(4095/2))? 1:500;
+	{  
+        if (xQueueReceive(myQueue, &rxData, portMAX_DELAY))
+        {
+            res = (rxData > (uint16_t)(4095/2))? 1:1000;
         }
+        
+        for (i = 0; i < 256; ++i) 
+        {
+            if (j == NUM_COLS*NUM_ROWS) j = 0; 
 
-        while (blue < 255){
-            for (uint8_t i = 0; i < NUM_COLS*NUM_ROWS; i++){
-                setLedColor(i, green, red, blue);
-            }   
-            blue++;
-            red--;
-            led_act();
-            vTaskDelay(res / portTICK_PERIOD_MS);
-        } 
+            // Red goes from 0 to 255
+            red = i;
+            // Green goes from 0 to 255
+            green = (i + 85) % 256; // 85 is 1/3 of 255
+            // Blue goes from 255 to 0
+            blue = (256 - i) % 256;
 
-        while(green < 255){
-            for (uint8_t i = 0; i < NUM_COLS*NUM_ROWS; i++){
-                setLedColor(i, green, red, blue);
-            }   
-            green++;
-            blue--;
+            // Print color
+            setLedColor(j, green, red, blue);
             led_act();
-            vTaskDelay(res / portTICK_PERIOD_MS);
+
+            j++;
+            // Sleep for a short duration to control the speed of the effect
         }
-
-        while(red < 255){
-            for (uint8_t i = 0; i < NUM_COLS*NUM_ROWS; i++){
-                setLedColor(i, green, red, blue);
-            }   
-            red++;
-            green--;
-            led_act();
-            vTaskDelay(res / portTICK_PERIOD_MS);
-        }
-
-        while(green < 255){
-            for (uint8_t i = 0; i < NUM_COLS*NUM_ROWS; i++){
-                setLedColor(i, green, red, blue);
-            }   
-            green++;
-            red--;
-            led_act();
-            vTaskDelay(res / portTICK_PERIOD_MS);
-        }
-
-        while(blue < 255){
-            for (uint8_t i = 0; i < NUM_COLS*NUM_ROWS; i++){
-                setLedColor(i, green, red, blue);
-            }   
-            blue++;
-            green--;
-            led_act();
-            vTaskDelay(res / portTICK_PERIOD_MS);
-        }
-
-        // vTaskDelay(res / portTICK_PERIOD_MS);
-
-        while(red < 255){
-            for (uint8_t i = 0; i < NUM_COLS*NUM_ROWS; i++){
-                setLedColor(i, green, red, blue);
-            }   
-            red++;
-            blue--;
-            led_act();
-            vTaskDelay(res / portTICK_PERIOD_MS);
-        }
-
-        // vTaskDelay(res / portTICK_PERIOD_MS);
+        vTaskDelay(res / portTICK_PERIOD_MS);
 	}
 }
 
-void vFlop(void *pvParameter){
-    for(;;){
+void vFlop(void *pvParameter)
+{
+    uint16_t res = 1000;
+    for(;;)
+    {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         vTaskSuspend(rainBow);
-        uint16_t res = 1000;
-        
-        for (uint8_t i=0; i< NUM_COLS*NUM_ROWS; i++){
-            setLedColor(i, 255, 255, 255);
-            led_act();
-        }
 
-        for (uint8_t i=0; i< NUM_COLS*NUM_ROWS; i++){
+        for (uint8_t i=0; i< NUM_COLS*NUM_ROWS; i++)
+        {
             setLedColor(i, 0, 0, 0);
             led_act();
         }
-
-        vTaskResume(rainBow);
         vTaskDelay(res / portTICK_PERIOD_MS);
     }
 }
 
-void vReadLM393(void *pvParameter){
+void vReadLM393(void *pvParameter)
+{
     uint32_t input;
 
     adc1_config_width(ADC_WIDTH_BIT_12);
 
     adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11); //attenuation
 
-    for(;;){
+    for(;;)
+    {
         input = adc1_get_raw(ADC1_CHANNEL_6);
         printf("%ld\n", input);
-        xQueueSend(myQueue, &input, 100);
+        xQueueSend(myQueue, &input, 10);
+        vTaskResume(rainBow);
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
 
 //------------------------------------------------------------------------
-void app_main() {
+void app_main() 
+{
     Init_TIM_RTOS();
 
     bitbang_initialize(pins);
 
     myQueue = xQueueCreate(QUEUE_LENGTH, ITEM_SIZE);
 
-    xTaskCreate(rainBow_led_task, "rainbow", 1024*3, NULL, 1, &rainBow);
+    xTaskCreate(vRainBow, "rainbow", 1024*3, NULL, 0, &rainBow);
     xTaskCreate(vReadLM393, "read", 1024*3, NULL, 2, &readInput);
-    xTaskCreate(vFlop, "jumping", 1024*3, NULL, 0, &flop);
+    xTaskCreate(vFlop, "jumping", 1024*3, NULL, 1, &flop);
 
-    while(1){
+    while(1)
+    {
         // printf("Restarting now.\n");
         // fflush(stdout);
         // esp_restart();
