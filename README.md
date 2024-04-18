@@ -1,0 +1,2 @@
+- Drive WS2812 using esp32 idf on platformio
+- Tryna catching and sampling the audio signal through LM393 
